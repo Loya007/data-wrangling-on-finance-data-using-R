@@ -1,0 +1,206 @@
+---
+title: "2119317_EMATM0061A"
+author: "Lakshmikanth Loya"
+date: "07/01/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+ 
+# Importing all the libraries required
+
+
+```{r SECTION A}
+library(tidyverse)
+library(Stat2Data)
+library(scales)
+```
+# A1
+*Importing the dataset to R.
+
+
+* finding the number of rows and columns of the given dataset
+
+```{r SECTION A1}
+
+finance_data_original <- read.csv(file = "finance_data_EMATM0061.csv") #importing the data sets
+
+nrow(finance_data_original)
+ncol(finance_data_original)
+#finding the number of rows and columns of the given dataset, the above dataset has 1051 rows and 30 columns
+```
+
+  
+# A2
+* Generate a new data frame called “finance_data” which is a subset of the “finance_data_original” data frame with the same number of rows, but only six columns
+
+* selecting and renaming a few certain columns of finance data
+
+```{r SECTION A2}
+finance_data <- finance_data_original %>%
+  select(state_year_code,Details.Education.Education.Total,Details.Health.Health.Total.Expenditure,Details.Transportation.Highways.Highways.Total.Expenditure,Totals.Revenue,Totals.Expenditure)  %>%
+  rename(education_expenditure = Details.Education.Education.Total, health_expenditure = Details.Health.Health.Total.Expenditure, transport_expenditure = Details.Transportation.Highways.Highways.Total.Expenditure, totals_revenue = Totals.Revenue, totals_expenditure = Totals.Expenditure)
+
+#displaying the specific renamed of finance_data
+finance_data %>%
+  select(state_year_code,education_expenditure,health_expenditure) %>%
+  head(5)
+```
+# A3
+* Creating a new column within the “finance_data” data frame called “totals_savings” which is equal to the difference between revenue and the expenditure i.e, the elements of the “totals_savings” column are equal to elements within the “totals_revenue” minus the element within the “totals_expenditure” column, for each row.
+```{r SECTION A3}
+#creating a new column named total_savings
+finance_data <- finance_data %>%
+  mutate(totals_savings = totals_revenue - totals_expenditure)
+head(finance_data,5)
+
+
+finance_data %>%
+  select(state_year_code,totals_revenue,totals_expenditure,totals_savings) %>%
+  head(3)
+
+```
+
+# A4
+* Dividing the “state_year_code” column into two separate columns, a “state” column and a “year” column which replace the original “state_year_code” column.
+* converting the first letter of state into uppercase and rest lowercase
+```{r SECTION A4}
+
+#seprating the state and year column
+finance_data <- finance_data %>%
+  separate(state_year_code,into=c("state","year"),sep = '__')
+
+
+#converting the first letter of state into uppercase and rest lowercase
+finance_data$state = str_to_title(finance_data$state)
+head(finance_data)
+
+finance_data %>%
+  select(state,year,totals_revenue,totals_expenditure,totals_savings) %>%
+  head(3)
+```
+
+
+# A5
+* genrate a plot which displays the total revenue (“total_revenue”) as function of the year (“year”) for the following four states: Louisiana, Montana, Mississippi and Kentucky.
+
+* creating a temporary dataframe to plot a graph for specified states
+```{r SECTION A5}
+#creating a temporary dataframe to plot a graph for specified states
+finance_data_plot <- finance_data%>%
+  select(year,totals_revenue,state)%>%
+  filter(state == "Louisiana"| state =="Montana"| state =="Mississippi"|state =="Kentucky")
+#finance_data_plot  #checking our data frame once
+#in the above step we are filtering the states that are desired for plotting a graph
+
+
+
+finance_data_plot$year <- as.numeric(finance_data_plot$year)
+#since the column "year" is of type "char" so we convert it into numeric to plot a graph
+mode(finance_data_plot$year) #checking whether the value of year changed to numeric from char
+
+ggplot(data = finance_data_plot,aes(x=year,y=totals_revenue,color=state,linetype = state))+xlab("Year")+ylab("Revenue(millions $)")+
+  scale_y_continuous(labels = label_number(scale = 1e-6))+geom_smooth()+theme_bw()
+#labeling the numbers to millions because the number are too great for the graph
+```
+
+# A6
+
+*Creating a function called get_decade() to convert all the years to their respective decades.
+*Using the get_decade() function to add a new column to the “finance_data” data frame called “decade”
+*which gives the decade corresponding to the year column.
+```{r SECTION A6}
+#declaring function get decade to convert all the years to their respective decades
+get_decade <- function(year){
+  if(year%%10 == 0){
+  }
+  else{
+    year = year-(year%%10)
+  }
+  return(year)
+}
+
+finance_data$year <- as.numeric(finance_data$year) #changing the value of year to numeric since it is in char and our function decade works for numeric values.
+mode(finance_data$year) #checking whether the value of year changed to numeric from char
+
+decade <- map_dbl(finance_data$year,get_decade)
+#applying decade function to the "year" column of finance_data
+
+finance_data <- finance_data %>%
+  mutate(decade)
+
+finance_data %>%head(4)
+
+
+finance_data %>%
+  group_by(state,decade) %>%
+  filter(decade==2000) %>%
+  summarise(mean_average_savings = mean(totals_savings,na.rm= TRUE)) %>%
+  arrange(desc( mean_average_savings)) %>%
+  head(3)# using head only till 3 since highest mean average of 3 states was asked and we got the highest by arranging the rows in descending order
+
+```
+
+# A7
+* Generate a summary data frame from the “finance_data” data frame called “alaska_summary” with certain specific properties.
+```{r SECTION A7}
+alaska_summary <- finance_data %>%
+  select(everything()) %>%
+  filter(state == "Alaska" & decade >=1990 | decade <= 2010) %>%
+  group_by(decade) %>%
+  summarise(ed_mn = mean(education_expenditure,na.rm=TRUE), ed_md = median(education_expenditure,na.rm=TRUE), he_mn = mean(health_expenditure,na.rm=TRUE), he_md = median(health_expenditure,na.rm=TRUE), tr_mn = mean(transport_expenditure,na.rm=TRUE), tr_md = median(transport_expenditure,na.rm=TRUE))
+
+alaska_summary
+```
+
+# A8
+* Removing all the NaaN/Missing values by using the function "impute_by_median()".
+* generating a subset of your “finance_data” data frame called “idaho_2000” which contains all those rows in
+* which the state column takes the value “Idaho” and the “decade” column takes the value “2000” and includes
+* the columns “year”, “education_expenditure”, “health_expenditure”, “transport_expenditure”, “totals_revenue”,
+* “totals_expenditure”, “totals_savings” (i'.e. all columns except “state” and “decade”).
+* Removing all the NaaN values using the "impure_by_median()".
+* Displaying a subset of your “idaho_2000_imputed” data frame consisting of the first five rows and the four columns
+* “year”, “health_expenditure”, “education_expenditure” and “totals_savings”.
+
+```{r SECTION A8}
+impute_by_median<-function(x){
+m_med<-median(x,na.rm=1) # first compute the mean of x
+impute_f<-function(z){ # coordinate-wise imputation
+if(is.na(z)){
+return(m_med) # if z is na replace with mean
+}else{
+return(z) # otherwise leave in place
+}
+}
+return(map_dbl(x,impute_f)) # apply the map function to impute across vector
+}
+
+idaho_2000<-finance_data%>%
+  filter(state=="Idaho"& decade==2000)%>%
+  select(-state,-decade)
+idaho_2000
+
+table(is.na(idaho_2000))#finding the total number of null values on the dataframe
+
+
+idaho_2000_imputed <- map_df(idaho_2000,impute_by_median)#removing the numm values
+
+
+idaho_2000_imputed%>%select(year, health_expenditure, education_expenditure,totals_savings)%>%
+
+
+  head(5)
+
+
+```  
